@@ -55,6 +55,7 @@ async function scrapeInParallel(endpoints: PartType[]) {
 		timeout: 1000 * 60 * 20, // 20 minutes
 		puppeteer,
 		puppeteerOptions: {
+			args: ['--no-sandbox', '--disable-setuid-sandbox'],
 			headless: 'new',
 		},
 	})
