@@ -172,7 +172,7 @@ function deduplicateByName(items) {
 
 // Upsert batch to Supabase via REST API
 async function upsertBatch(items) {
-  const url = `${SUPABASE_URL}/rest/v1/pcpartpicker_prices`
+  const url = `${SUPABASE_URL}/rest/v1/pcpartpicker_prices?on_conflict=category,name`
 
   const body = items.map(item => ({
     category: item.category,
@@ -189,7 +189,7 @@ async function upsertBatch(items) {
       'apikey': SUPABASE_KEY,
       'Authorization': `Bearer ${SUPABASE_KEY}`,
       'Content-Type': 'application/json',
-      'Prefer': 'resolution=merge-duplicates'
+      'Prefer': 'return=minimal,resolution=merge-duplicates'
     },
     body: JSON.stringify(body)
   })
