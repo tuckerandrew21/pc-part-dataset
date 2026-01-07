@@ -1,0 +1,67 @@
+name: Scrape PCPartPicker Prices
+
+on:
+  schedule:
+    # Run twice weekly: Sunday and Wednesday at 3am UTC
+    - cron: '0 3 * * 0'  # Sunday
+    - cron: '0 3 * * 3'  # Wednesday
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run scraper (5 categories only)
+        run: npm run start -- cpu video-card memory internal-hard-drive power-supply
+
+      - name: Validate scraped data
+        run: node scripts/validate-data.js
+
+      - name: Upload to Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/upload-to-supabase.js
+
+      - name: Commit updated data
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add data/
+          git diff --staged --quiet || git commit -m "chore: update price data $(date +%Y-%m-%d)"
+          git push
+
+      - name: Notify Discord (success)
+        if: success()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            curl -H "Content-Type: application/json" \
+              -d '{"content": "✅ PCPartPicker price scrape completed successfully!"}' \
+              $DISCORD_WEBHOOK
+          fi
+
+      - name: Notify Discord (failure)
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            curl -H "Content-Type: application/json" \
+              -d '{"content": "❌ PCPartPicker price scrape FAILED! Check GitHub Actions logs."}' \
+              $DISCORD_WEBHOOK
+          fi
